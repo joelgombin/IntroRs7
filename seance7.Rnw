@@ -1,0 +1,293 @@
+\documentclass[slidetop, 10pt]{beamer}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{default}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{lmodern}
+\usepackage[frenchb]{babel}
+\usetheme{Antibes}
+
+\usecolortheme{beaver}
+\title{Séminaire d'introduction à R}
+\subtitle{séance 7 - Cartographie}
+\author{Joël Gombin}
+\institute{CURAPP - UPJV}
+\date{20 avril 2012}
+\usepackage{graphicx}
+\usepackage[fixlanguage]{babelbib}
+\selectbiblanguage{french}
+\setbeamertemplate{navigation symbols}{}
+\usepackage{listings}
+
+\usepackage{color}
+\usepackage{alltt}
+\usepackage{hyperref}
+
+\ifdefined\knitrout
+  \renewenvironment{knitrout}{\begin{tiny}}{\end{tiny}}
+\else
+\fi
+
+\definecolor{links}{HTML}{2A1B81}
+\hypersetup{colorlinks,linkcolor=,urlcolor=links}
+
+\SweaveOpts{size="tiny"}
+
+\AtBeginSection[] 
+{ 
+  \begin{frame}[plain]{Plan} 
+    \tableofcontents[currentsection, hideothersubsections] 
+  \end{frame} 
+} 
+
+
+
+\begin{document}
+
+\frame{\titlepage}
+
+\section{Quelques éléments sur la cartographie}
+
+\begin{frame}
+\frametitle{Introduction : notions de base de cartographie}
+
+
+
+\begin{block}{Carte raster}
+Carte composée de pixels : par exemple une photo satellite. L'information est représentée par la couleur du pixel, lui-même porteur d'une information géographique (coordonnées \verb!x! et \verb!y!).
+\end{block}
+
+\begin{block}{Carte vectorielle}
+Carte composée d'éléments : points, lignes, courbes, polygones... Ces éléments constituent en eux-même une information géographique (ils ont des coordonnées), à laquelle on peut  ajouter une information supplémentaire (par exemple en coloriant un polygone).
+\end{block}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Notions de base de cartographie}
+
+Si on s'en tient aux cartes vectorielles, seules traitées ici, pour faire une carte il faut :
+
+\begin{itemize}
+\item un fond de carte (dans un format vectoriel : une simple image ne suffit pas) (généralement associé à une projection, permettant le passage d'une sphère à un plan. E.g. : \href{http://geekisawesome.com/1865/what-map-projections-say-about-you/}{Mercator}).
+\item des données se rapportant aux objets de cette carte
+\item un identifiant commun à ces deux ensembles.
+\end{itemize}
+
+\end{frame}
+
+
+\section{La cartographie dans R}
+
+\begin{frame}
+\frametitle{La cartographie dans R}
+
+Dans R, les cartes sont des objets dotés d'une structure complexe. Il existe plusieurs approches, mais la plus répandue consiste à utiliser la classe d'objets \verb!SpatialPolygonsDataFrame!. C'est le package \verb!sp! qui définit cette classe, qui contient aussi bien des données géographiques (coordonnées des éléments) que des données sur ces objets.
+
+Une bonne pratique consiste à séparer les donnnées portant sur les éléments (coordonnées mais aussi identifiants, par exemple) et celles qu'on souhaite cartographier. 
+
+Par ailleurs, le package \verb!ggplot2! propose également une fonction pour représenter des cartes raster ou choroplèthes, mais il utilise un autre format de données (celui du package \verb!maps!). Il semble toutefois que le choix de la projection soit plus aisé.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Les outils du package \verb!rgrs!}
+Dans le cadre de cette introduction, je vais présenter essentiellement les outils du package \verb!rgrs! développé par Julien Barnier. Ils sont à la fois faciles à utiliser et relativement puissants. Une fois la logique assimilée, il sera aisé d'aller plus loin si nécessaire.
+
+<<initialisation, results='hide', message =FALSE, warning=FALSE>>=
+library(rgrs)
+library(sp)
+@
+
+\end{frame}
+
+\section{Importer des données géographiques}
+\begin{frame}[fragile]
+\frametitle{Importer des données géographiques}
+
+Il existe de nombreux formats de données cartographiques, mais le plus répandu est le \verb!shapefile!. Une carte est contenue dans un ensemble de fichiers portant tous le même nom mais dotés d'extensions différentes (\verb!.shp!, \verb!.dbf!, \verb!.prj!...). 
+
+<<shp>>=
+library(rgdal)
+readOGR("/media/Data/Dropbox/Thèse/séminaire R/séance 7", "picardie")->picardie
+picardie$STATUT<-as.factor(iconv(picardie$STATUT, from="latin1", to="utf8"))
+picardie$codeINSEE <- as.character(picardie$INSEE_COM)
+@
+\end{frame}
+
+
+\section{Manipuler des objets spatiaux}
+\begin{frame}[fragile]
+\frametitle{Avoir des informations sur une carte et la représenter}
+<<shp2, results='hide'>>=
+summary(picardie)
+@
+<<shp3, eval=F>>=
+require(sp)
+plot(picardie)
+@
+
+<<shp4, dev=pdf, out.width=.7\linewidth, fig.align=center, background=white, echo=F>>=
+plot(picardie)
+@
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Manipuler une carte}
+
+Une carte est donc un objet de type \verb!SpatialPolygonsDataFrame!. Il contient plusieurs ensemble de données ; généralement, le seul qu'on manipule directement est le slot \verb!@data!, qui contient les données sur les objets géographiques. 
+
+<<data>>=
+names(picardie@data)
+summary(picardie@data$NOM_DEPT)
+@
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Manipuler une carte}
+De plus, on manipule une carte comme n'importe quel dataframe :
+
+<<data2>>=
+somme <- picardie[picardie@data$CODE_DEPT == "80",]
+@
+
+Le package \verb!sp! offre de plus des outils pour facilement manipuler plusieurs couches cartographiques (par exemple étudier l'intersection de plusieurs ensembles d'éléments géographiques).
+
+Enfin, on sauve et charge cet objet comme n'importe quel autre :
+
+<<save, eval=F>>=
+save(picardie, file="picardie.Rdata")
+load("picardie.Rdata")
+@
+
+\end{frame}
+\begin{frame}[fragile]
+\frametitle{Agréger des éléments cartographiques}
+On a parfois besoin de regrouper entre eux des polygones. Par exemple, de ma carte communale, je veux tirer une carte des départements. 
+
+<<union, dev=pdf, out.width=.6\linewidth, fig.align=center>>=
+require(gpclib)
+gpclibPermit()
+require(maptools)
+dpts <- unionSpatialPolygons(picardie, IDs=picardie@data$CODE_DEPT)
+plot(dpts)
+@
+\end{frame}
+
+\section{Cartes choroplèthes}
+\begin{frame}[fragile]
+\frametitle{Représenter des proportions : les cartes choroplèthes}
+
+L'intérêt d'une carte n'est généralement pas de simplement représenter des objets géographiques mais d'y associer de l'information. Il y a de multiples manières de le faire ; on se concentrera ici sur les cartes choroplèthes, dans lesquelles les polygones sont coloriées en fonction de la variable d'intérêt.
+
+On commence par vérifier qu'on a bien un identidiant commun à nos données et à notre carte :
+
+<<load>>=
+load("/media/Data/Dropbox/Thèse/séminaire R/séance 1/mini_picardie.Rdata")
+head(mini_picardie$CODE_COMMU)
+# Non, donc on recode :
+mini_picardie$codeINSEE <- paste(as.character(mini_picardie$CODE_D_PAR), as.character(mini_picardie$CODE_COMMU), sep="")
+@
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Représenter des proportions : les cartes choroplèthes}
+Par facilité, on ne va travailler que sur la Somme. On utilise la fonction \verb!carte.prop! du package \verb!rgrs! :
+
+<<carteprop,dev=pdf, out.width=.55\linewidth, fig.align=center, message=FALSE>>=
+somme <- picardie[picardie@data$CODE_DEPT == "80",]
+carte.prop(somme, mini_picardie, varname="AbsIns", sp.key="codeINSEE", data.key="codeINSEE", at=quantile(mini_picardie$AbsIns, c(0,.25,.5,.75,1)))
+@
+
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Paramétrer une carte choroplèthe}
+
+La fonction \verb!carte.prop! prend une série d'arguments, que vous pouvez tester.
+
+Par ailleurs, pour le choix des couleurs, on peut s'aider du site \url{http://www.colorbrewer2.org}. Les arguments \verb!palette.pos! et \verb!palette.neg! de \verb!carte.prop! prennent les noms proposés sur le site. 
+\end{frame}
+
+\section{Représenter des effectifs}
+\begin{frame}
+\frametitle{Représenter des effectifs}
+
+Admettons que nous voulions représenter les effectifs des communes de la Somme. 
+
+
+<<carteeff,dev=pdf, out.width=.55\linewidth, fig.align=center>>=
+carte.eff(somme, mini_picardie, varname="Population", sp.key="codeINSEE", data.key="codeINSEE")
+@
+
+\end{frame}
+\section{Représenter une variable catégorielle}
+\begin{frame}[fragile]
+\frametitle{Représenter une variable catégorielle}
+La syntaxe est toujours très proche, on utilise cette fois-ci la fonction \verb!carte.qual! :
+
+<<cartequal, dev=pdf, out.width=.5\linewidth, fig.align=center>>=
+
+pal <- c("orange", "yellow", "light green", "red")
+carte.qual(somme, mini_picardie, varname="type_urbain", sp.key="codeINSEE", data.key="codeINSEE", palette=pal, posleg="bottomleft", main="Le découpage en ZAUER en Picardie", sub="source : INSEE.")
+@
+
+\end{frame}
+
+\section{Quelques subtilités supplémentaires...}
+\begin{frame}[fragile]
+\frametitle{Rajouter des bordures}
+Imaginons que nous voulions rajouter les découpages des arrondissements. Il nous faut d'abord créer des éléments correspondants, et ensuite les ajouter.
+
+<<fusion, dev=pdf, out.width=.45\textwidth, fig.align=center>>=
+arrdts <- unionSpatialPolygons(somme, IDs=somme@data$CODE_ARR)
+carte.qual(somme, mini_picardie, varname="type_urbain", sp.key="codeINSEE", data.key="codeINSEE", palette=pal, posleg="bottomleft", main="Le découpage en ZAUER en Picardie", sub="source : INSEE.")
+plot(arrdts, lwd=5, border = "red", add = TRUE)
+@
+
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Faire une carte en coloration continue}
+
+Le "truc" consiste à passer autant de breaks, et de couleurs, à la fonction que de valeurs différentes de la variable continue représentée. Pour cela on choisit les couleurs qu'on veut pour sa palette (palette séquentielle ou divergente), puis on crée une palette de \verb!n! valeurs à partir d'un certain nombre de points. On passe \verb!pal(n)! en argument de \verb!carte.prop!.
+
+<<coloration1, eval=F>>=
+library(RColorBrewer)
+colors <- brewer.pal(6, "RdBu") 
+pal <- colorRampPalette(colors) 
+carte.prop(picardie, mini_picardie, "revenu.fiscal.moyen", sp.key="codeINSEE", data.key="codeINSEE", at=as.integer(levels(as.factor(mini_picardie$revenu.fiscal.moyen))), border="transparent", palette=pal(length(levels(as.factor(mini_picardie$revenu.fiscal.moyen)))), posleg="none", main="Le revenu fiscal moyen des ménages par communes")
+plot(dpts, add=T)
+@
+\end{frame}
+
+\begin{frame}
+\frametitle{Faire une carte en coloration continue}
+<<coloration, dev=pdf, out.width=.8\textwidth, fig.align=center, echo=F>>=
+library(RColorBrewer)
+colors <- brewer.pal(6, "RdBu") 
+pal <- colorRampPalette(colors) 
+carte.prop(picardie, mini_picardie, "revenu.fiscal.moyen", sp.key="codeINSEE", data.key="codeINSEE", at=as.integer(levels(as.factor(mini_picardie$revenu.fiscal.moyen))), border="transparent", palette=pal(length(levels(as.factor(mini_picardie$revenu.fiscal.moyen)))), posleg="none", main="Le revenu fiscal moyen des ménages par communes")
+plot(dpts, add=T)
+@
+
+\end{frame}
+\section*{Conclusion}
+\begin{frame}
+\frametitle{Conclusion}
+
+La cartographie dans R est assez simple, en tout cas pour des tâches simples, et surtout offre à la fois beaucoup de souplesse tout en utilisant une syntaxe commune avec la manipulation de données. 
+
+De plus, en scriptant, on peut produire très rapidement de très nombreuses cartes, soit de différents territoires, soit de différentes variables.
+
+
+Pour la route, le blog d'un géographe anglais produisant de magnifiques cartes sous R : \url{http://spatialanalysis.co.uk/}.
+
+\end{frame}
+
+\end{document}
